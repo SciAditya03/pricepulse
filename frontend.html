@@ -1,0 +1,43 @@
+<!-- frontend/index.html --><!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>PricePulse - E-Commerce Price Tracker</title>
+  <style>
+    body { font-family: Arial; text-align: center; background-color: #f0f8ff; padding: 40px; }
+    h1 { background-color: #007bff; color: white; padding: 15px; border-radius: 10px; }
+    input[type="text"] { width: 60%; padding: 10px; margin: 20px 0; }
+    button { padding: 10px 20px; background-color: #28a745; color: white; border: none; border-radius: 5px; }
+    #response { margin-top: 20px; font-weight: bold; }
+  </style>
+</head>
+<body>
+
+  <h1>PricePulse - E-Commerce Price Tracker</h1>
+
+  <label for="urlInput">Enter Amazon Product URL:</label><br>
+  <input type="text" id="urlInput" placeholder="https://www.amazon.in/..."><br>
+  <button onclick="submitURL()">Track</button>
+
+  <div id="response"></div>
+
+  <script>
+    async function submitURL() {
+      const url = document.getElementById("urlInput").value;
+      const responseBox = document.getElementById("response");
+
+      const response = await fetch("http://127.0.0.1:8000/track", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ url })
+      });
+
+      const result = await response.json();
+      responseBox.innerText = "Tracking: " + result.product_url + " | Status: " + result.message;
+    }
+  </script>
+
+
+</body></html>
