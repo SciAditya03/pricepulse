@@ -107,3 +107,123 @@ async def scrape_amazon(url):
 # Main trigger
 init_db()
 await scrape_amazon("https://www.amazon.in/dp/B0C9J48B3N")
+import sqlite3
+
+# Connect to SQLite DB (creates file if it doesn't exist)
+conn = sqlite3.connect("price_data.db")
+cursor = conn.cursor()
+
+# Create table
+cursor.execute('''
+    CREATE TABLE IF NOT EXISTS prices (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        url TEXT,
+        product_name TEXT,
+        price TEXT,
+        timestamp TEXT
+    )
+''')
+
+conn.commit()
+conn.close()
+
+print("Database and table created successfully.")
+import sqlite3
+from datetime import datetime
+
+def insert_data(url, product_name, price):
+    conn = sqlite3.connect("price_data.db")
+    cursor = conn.cursor()
+
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    cursor.execute('''
+        INSERT INTO prices (url, product_name, price, timestamp)
+        VALUES (?, ?, ?, ?)
+    ''', (url, product_name, price, timestamp))
+
+    conn.commit()
+    conn.close()
+    print("Data inserted successfully.")
+    from playwright.sync_api import sync_playwright
+
+def scrape_amazon_product(url):
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        page = browser.new_page()
+        page.goto(url, timeout=60000)
+
+        try:
+            product_name = page.locator("span#productTitle").inner_text().strip()
+        except:
+            product_name = "N/A"
+
+        try:
+            price = page.locator("span.a-price-whole").first.inner_text().strip()
+        except:
+            price = "N/A"
+
+        browser.close()
+
+        insert_data(url, product_name, price)
+        print(f"Scraped: {product_name} - ₹{price}")
+        !pip install APScheduler
+        from apscheduler.schedulers.background import BackgroundScheduler
+import time
+
+scheduler = BackgroundScheduler()
+
+def scheduled_scrape():
+    print("Running scheduled scrape...")
+    product_url = "https://www.amazon.in/dp/B0C9J48B3N"
+    scrape_amazon_product(product_url)
+
+# Schedule job every minute for demo (you can change to 'hours=1' for hourly)
+scheduler.add_job(scheduled_scrape, 'interval', minutes=1)
+scheduler.start()
+
+print("Scheduler started.")
+try:
+    while True:
+        time.sleep(60)
+except (KeyboardInterrupt, SystemExit):
+    scheduler.shutdown()
+    print("Scheduler stopped.")
+    from fastapi import FastAPI, Request, Form
+from pydantic import BaseModel
+from fastapi.middleware.cors import CORSMiddleware
+import sqlite3
+import datetime
+app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+class URLRequest(BaseModel):
+    url: str
+  def get_data_from_db():
+    conn = sqlite3.connect('product_prices.db')
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM prices ORDER BY timestamp DESC")
+    rows = cursor.fetchall()
+    conn.close()
+    return rows
+@app.get("/")
+def root():
+    return {"message": "PricePulse API is up and running!"}
+
+@app.post("/submit")
+def submit_url(data: URLRequest):
+    # You can trigger scrape here or just store
+    return {"message": "URL received", "url": data.url}
+
+@app.get("/history")
+def fetch_history():
+    rows = get_data_from_db()
+    return {"data": [
+        {"timestamp": row[0], "url": row[1], "name": row[2], "price": row[3]} for row in rows
+    ]}
